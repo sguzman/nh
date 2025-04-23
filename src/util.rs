@@ -1,33 +1,10 @@
-extern crate semver;
-
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 
 use color_eyre::{eyre, Result};
-use semver::Version;
 use tempfile::TempDir;
-
-/// Compares two semantic versions and returns their order.
-///
-/// This function takes two version strings, parses them into `semver::Version` objects, and compares them.
-/// It returns an `Ordering` indicating whether the current version is less than, equal to, or
-/// greater than the target version.
-///
-/// # Arguments
-///
-/// * `current` - A string slice representing the current version.
-/// * `target` - A string slice representing the target version to compare against.
-///
-/// # Returns
-///
-/// * `Result<std::cmp::Ordering>` - The comparison result.
-pub fn compare_semver(current: &str, target: &str) -> Result<std::cmp::Ordering> {
-    let current = Version::parse(current)?;
-    let target = Version::parse(target)?;
-
-    Ok(current.cmp(&target))
-}
 
 /// Retrieves the installed Nix version as a string.
 ///
@@ -59,6 +36,19 @@ pub fn get_nix_version() -> Result<String> {
     Err(eyre::eyre!("Failed to extract version"))
 }
 
+/// Determines if the Nix binary is actually Lix
+///
+/// # Returns
+///
+/// * `Result<bool>` - True if the binary is Lix, false if it's standard Nix
+pub fn is_lix() -> Result<bool> {
+    let output = Command::new("nix").arg("--version").output()?;
+    let output_str = str::from_utf8(&output.stdout)?.to_lowercase();
+
+    Ok(output_str.contains("lix"))
+}
+
+/// Represents an object that may be a temporary path
 pub trait MaybeTempPath: std::fmt::Debug {
     fn get_path(&self) -> &Path;
 }
@@ -75,6 +65,11 @@ impl MaybeTempPath for (PathBuf, TempDir) {
     }
 }
 
+/// Gets the hostname of the current system
+///
+/// # Returns
+///
+/// * `Result<String>` - The hostname as a string or an error
 pub fn get_hostname() -> Result<String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -101,4 +96,48 @@ pub fn get_hostname() -> Result<String> {
 
         Ok(name.to_string())
     }
+}
+
+/// Retrieves all enabled experimental features in Nix.
+///
+/// This function executes the `nix config show experimental-features` command and returns
+/// a HashSet of the enabled features.
+///
+/// # Returns
+///
+/// * `Result<HashSet<String>>` - A HashSet of enabled experimental features or an error.
+pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
+    let output = Command::new("nix")
+        .args(["config", "show", "experimental-features"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(eyre::eyre!(
+            "Failed to get experimental features: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let output_str = str::from_utf8(&output.stdout)?;
+    let enabled_features: HashSet<String> =
+        output_str.split_whitespace().map(String::from).collect();
+
+    Ok(enabled_features)
+}
+
+/// Checks if all specified experimental features are enabled in Nix.
+///
+/// # Arguments
+///
+/// * `features` - A slice of string slices representing the features to check for.
+///
+/// # Returns
+///
+/// * `Result<bool>` - True if all specified features are enabled, false otherwise.
+pub fn has_all_experimental_features(features: &[&str]) -> Result<bool> {
+    let enabled_features = get_nix_experimental_features()?;
+    let features_set: HashSet<String> = features.iter().map(|&s| s.to_string()).collect();
+
+    // Check if features_set is a subset of enabled_features
+    Ok(features_set.is_subset(&enabled_features))
 }
