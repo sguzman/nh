@@ -14,7 +14,9 @@ pub fn check_nix_version() -> Result<()> {
     let version = util::get_nix_version()?;
     let is_lix_binary = util::is_lix()?;
 
-    let min_version = if is_lix_binary { "2.91.0" } else { "2.26.1" };
+    // Minimum supported versions. Those should generally correspond to
+    // latest package versions in the stable branch
+    let min_version = if is_lix_binary { "2.91.1" } else { "2.26.1" };
 
     let current = Version::parse(&version)?;
     let required = Version::parse(min_version)?;
