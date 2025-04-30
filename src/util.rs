@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::str;
 
 use color_eyre::{eyre, Result};
 use tempfile::TempDir;
+
+use crate::commands::Command;
 
 /// Retrieves the installed Nix version as a string.
 ///
@@ -15,10 +16,12 @@ use tempfile::TempDir;
 ///
 /// * `Result<String>` - The Nix version string or an error if the version cannot be retrieved.
 pub fn get_nix_version() -> Result<String> {
-    let output = Command::new("nix").arg("--version").output()?;
+    let output = Command::new("nix")
+        .arg("--version")
+        .run_capture()?
+        .ok_or_else(|| eyre::eyre!("No output from command"))?;
 
-    let output_str = str::from_utf8(&output.stdout)?;
-    let version_str = output_str
+    let version_str = output
         .lines()
         .next()
         .ok_or_else(|| eyre::eyre!("No version string found"))?;
@@ -42,10 +45,12 @@ pub fn get_nix_version() -> Result<String> {
 ///
 /// * `Result<bool>` - True if the binary is Lix, false if it's standard Nix
 pub fn is_lix() -> Result<bool> {
-    let output = Command::new("nix").arg("--version").output()?;
-    let output_str = str::from_utf8(&output.stdout)?.to_lowercase();
+    let output = Command::new("nix")
+        .arg("--version")
+        .run_capture()?
+        .ok_or_else(|| eyre::eyre!("No output from command"))?;
 
-    Ok(output_str.contains("lix"))
+    Ok(output.to_lowercase().contains("lix"))
 }
 
 /// Represents an object that may be a temporary path
@@ -109,16 +114,14 @@ pub fn get_hostname() -> Result<String> {
 pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
     let output = Command::new("nix")
         .args(["config", "show", "experimental-features"])
-        .output()?;
+        .run_capture()?;
 
-    if !output.status.success() {
-        return Err(eyre::eyre!(
-            "Failed to get experimental features: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
+    // If running with dry=true, output might be None
+    let output_str = match output {
+        Some(output) => output,
+        None => return Ok(HashSet::new()),
+    };
 
-    let output_str = str::from_utf8(&output.stdout)?;
     let enabled_features: HashSet<String> =
         output_str.split_whitespace().map(String::from).collect();
 

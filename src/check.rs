@@ -13,6 +13,10 @@ use crate::util;
 ///
 /// * `Result<()>` - Ok if version requirements are met, error otherwise
 pub fn check_nix_version() -> Result<()> {
+    if env::var("NH_NO_CHECKS").is_ok() {
+        return Ok(());
+    }
+
     let version = util::get_nix_version()?;
     let is_lix_binary = util::is_lix()?;
 
@@ -63,6 +67,10 @@ pub fn check_nix_version() -> Result<()> {
 ///
 /// * `Result<()>` - Ok if all required features are enabled, error otherwise
 pub fn check_nix_features() -> Result<()> {
+    if env::var("NH_NO_CHECKS").is_ok() {
+        return Ok(());
+    }
+
     let mut required_features = vec!["nix-command", "flakes"];
 
     // Lix still uses repl-flake, which is removed in the latest version of Nix.
@@ -115,6 +123,10 @@ pub fn setup_environment() -> Result<bool> {
 ///
 /// * `Result<()>` - Ok if all checks pass, error otherwise
 pub fn verify_nix_environment() -> Result<()> {
+    if env::var("NH_NO_CHECKS").is_ok() {
+        return Ok(());
+    }
+
     check_nix_version()?;
     check_nix_features()?;
     Ok(())
@@ -134,6 +146,7 @@ fn cleanup_env_vars() {
     env::remove_var("NH_OS_FLAKE");
     env::remove_var("NH_HOME_FLAKE");
     env::remove_var("NH_DARWIN_FLAKE");
+    env::remove_var("NH_NO_CHECKS");
 }
 
 #[test]
@@ -274,5 +287,25 @@ fn test_setup_environment_flake_set_no_nh_flake_nh_darwin_flake_set() -> Result<
     );
 
     cleanup_env_vars(); // Clean up after test
+    Ok(())
+}
+
+#[test]
+fn test_checks_skip_when_no_checks_set() -> Result<()> {
+    let _lock = ENV_LOCK.lock().unwrap();
+    cleanup_env_vars();
+
+    env::set_var("NH_NO_CHECKS", "1");
+
+    // These should succeed even with invalid environment
+    let version_check = check_nix_version();
+    let features_check = check_nix_features();
+    let verify_check = verify_nix_environment();
+
+    assert!(version_check.is_ok(), "Version check should be skipped");
+    assert!(features_check.is_ok(), "Features check should be skipped");
+    assert!(verify_check.is_ok(), "Verify check should be skipped");
+
+    cleanup_env_vars();
     Ok(())
 }
