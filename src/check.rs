@@ -78,15 +78,33 @@ pub fn check_nix_features() -> Result<()> {
         required_features.push("repl-flake");
     }
 
+    tracing::debug!("Required Nix features: {}", required_features.join(", "));
+
+    // Get currently enabled features
+    match util::get_nix_experimental_features() {
+        Ok(enabled_features) => {
+            let features_vec: Vec<_> = enabled_features.into_iter().collect();
+            tracing::debug!("Enabled Nix features: {}", features_vec.join(", "));
+        }
+        Err(e) => {
+            tracing::warn!("Failed to get enabled Nix features: {}", e);
+        }
+    }
+
     let missing_features = util::get_missing_experimental_features(&required_features)?;
 
     if !missing_features.is_empty() {
+        tracing::warn!(
+            "Missing required Nix features: {}",
+            missing_features.join(", ")
+        );
         return Err(eyre::eyre!(
             "Missing required experimental features. Please enable: {}",
             missing_features.join(", ")
         ));
     }
 
+    tracing::debug!("All required Nix features are enabled");
     Ok(())
 }
 

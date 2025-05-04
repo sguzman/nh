@@ -128,23 +128,6 @@ pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
     Ok(enabled_features)
 }
 
-/// Checks if all specified experimental features are enabled in Nix.
-///
-/// # Arguments
-///
-/// * `features` - A slice of string slices representing the features to check for.
-///
-/// # Returns
-///
-/// * `Result<bool>` - True if all specified features are enabled, false otherwise.
-pub fn has_all_experimental_features(features: &[&str]) -> Result<bool> {
-    let enabled_features = get_nix_experimental_features()?;
-    let features_set: HashSet<String> = features.iter().map(|&s| s.to_string()).collect();
-
-    // Check if features_set is a subset of enabled_features
-    Ok(features_set.is_subset(&enabled_features))
-}
-
 /// Gets the missing experimental features from a required list.
 ///
 /// # Arguments
