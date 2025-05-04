@@ -1,10 +1,13 @@
-use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::{
+    path::PathBuf,
+    sync::LazyLock,
+};
 
 use crate::installable::Installable;
 
-// Provide common test data for unit tests and property tests. This is better for
-// consistency across tests and hopefully reduces duplication of test setup code.
+// Provide common test data for unit tests and property tests. This is better
+// for consistency across tests and hopefully reduces duplication of test setup
+// code.
 
 /// Common test flake references
 pub static TEST_FLAKE_REFERENCES: LazyLock<Vec<String>> = LazyLock::new(|| {
@@ -23,7 +26,11 @@ pub static TEST_ATTRIBUTE_PATHS: LazyLock<Vec<Vec<String>>> = LazyLock::new(|| {
         vec!["nixosConfigurations".to_string(), "myhost".to_string()],
         vec!["homeConfigurations".to_string(), "myuser".to_string()],
         vec!["darwinConfigurations".to_string(), "myhost".to_string()],
-        vec!["legacyPackages".to_string(), "x86_64-linux".to_string(), "hello".to_string()],
+        vec![
+            "legacyPackages".to_string(),
+            "x86_64-linux".to_string(),
+            "hello".to_string(),
+        ],
         vec![],
     ]
 });
@@ -64,7 +71,8 @@ pub fn create_test_file(path: &str, attribute: Vec<String>) -> Installable {
     }
 }
 
-/// Create a test Installable::Expression with specified expression and attribute
+/// Create a test Installable::Expression with specified expression and
+/// attribute
 pub fn create_test_expression(expression: &str, attribute: Vec<String>) -> Installable {
     Installable::Expression {
         expression: expression.to_string(),

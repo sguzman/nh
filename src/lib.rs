@@ -28,9 +28,7 @@ pub mod update;
 pub mod util;
 
 // Testing infrastructure
-#[cfg(test)]
-pub mod testing;
+#[cfg(test)] pub mod testing;
 
 // Tests
-#[cfg(test)]
-pub mod tests;
+#[cfg(test)] pub mod tests;

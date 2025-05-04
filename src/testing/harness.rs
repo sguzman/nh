@@ -1,7 +1,15 @@
-use std::sync::Once;
-use std::sync::{Mutex, LazyLock};
+use std::sync::{
+    LazyLock,
+    Mutex,
+    Once,
+};
 
-use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
+use tracing_subscriber::{
+    fmt,
+    prelude::*,
+    registry,
+    EnvFilter,
+};
 
 // We gotta make sure test initialization happens *only* once
 static INIT: Once = Once::new();
@@ -45,10 +53,9 @@ pub fn test_init() -> TestGuard {
             .install()
             .expect("Failed to install color-eyre hook");
 
-        // Specialized tracing setup for tests. Since this is not a user-facing component
-        // we can be a bit more verbose here if we want to.
-        let filter =
-            EnvFilter::try_from_env(TEST_LOG_ENV).unwrap_or_else(|_| EnvFilter::new("off"));
+        // Specialized tracing setup for tests. Since this is not a user-facing
+        // component we can be a bit more verbose here if we want to.
+        let filter = EnvFilter::try_from_env(TEST_LOG_ENV).unwrap_or_else(|_| EnvFilter::new("off"));
 
         let fmt_layer = fmt::layer().with_target(true).with_writer(std::io::stderr);
 
@@ -66,7 +73,7 @@ pub fn test_init() -> TestGuard {
 
 /// Provides a temporary environment context for tests
 pub struct EnvContext {
-    original: std::collections::HashMap<String, Option<String>>,
+    original:    std::collections::HashMap<String, Option<String>>,
     _lock_guard: Option<std::sync::MutexGuard<'static, ()>>,
 }
 
@@ -74,15 +81,16 @@ impl EnvContext {
     /// Create a new environment context
     pub fn new() -> Self {
         Self {
-            original: std::collections::HashMap::new(),
+            original:    std::collections::HashMap::new(),
             _lock_guard: None,
         }
     }
 
-    /// Create a new environment context with locking to prevent parallel tests from interfering
+    /// Create a new environment context with locking to prevent parallel tests
+    /// from interfering
     pub fn with_lock() -> Self {
         Self {
-            original: std::collections::HashMap::new(),
+            original:    std::collections::HashMap::new(),
             _lock_guard: Some(ENV_LOCK.lock().unwrap()),
         }
     }

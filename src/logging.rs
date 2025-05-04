@@ -1,17 +1,25 @@
 use owo_colors::OwoColorize;
-use tracing::Event;
-use tracing::Level;
-use tracing::Subscriber;
-use tracing_subscriber::filter::filter_fn;
-use tracing_subscriber::filter::FilterExt;
-use tracing_subscriber::fmt;
-use tracing_subscriber::fmt::FormatEvent;
-use tracing_subscriber::fmt::FormatFields;
-use tracing_subscriber::prelude::*;
-use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::EnvFilter;
+use tracing::{
+    Event,
+    Level,
+    Subscriber,
+};
+use tracing_subscriber::{
+    filter::{
+        filter_fn,
+        FilterExt,
+    },
+    fmt,
+    fmt::{
+        FormatEvent,
+        FormatFields,
+    },
+    prelude::*,
+    registry::LookupSpan,
+    EnvFilter,
+};
 
-use crate::*;
+use crate::Result;
 
 #[allow(dead_code)]
 struct InfoFormatter;
@@ -44,7 +52,7 @@ where
 
         if *level != Level::INFO {
             if let (Some(file), Some(line)) = (metadata.file(), metadata.line()) {
-                write!(writer, " (nh/{}:{})", file, line)?;
+                write!(writer, " (nh/{file}:{line})")?;
             }
         }
 

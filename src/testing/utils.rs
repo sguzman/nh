@@ -1,5 +1,14 @@
-use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::{
+    path::{
+        Path,
+        PathBuf,
+    },
+    time::{
+        Duration,
+        SystemTime,
+    },
+};
+
 use color_eyre::Result;
 use humantime::DurationError;
 
@@ -51,15 +60,15 @@ pub fn create_test_directory_structure(
     structure: &[(&str, Option<&str>)],
 ) -> Result<Vec<PathBuf>> {
     let mut created_paths = Vec::new();
-    
+
     for (path, content) in structure {
         let full_path = base_dir.join(path);
-        
+
         // Create parent directories if they don't exist
         if let Some(parent) = full_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        
+
         // Create file or directory
         if let Some(content) = content {
             // It's a file
@@ -68,17 +77,17 @@ pub fn create_test_directory_structure(
             // It's a directory
             std::fs::create_dir_all(&full_path)?;
         }
-        
+
         created_paths.push(full_path);
     }
-    
+
     Ok(created_paths)
 }
 
 /// Asserts two vectors contain the same elements, regardless of order
 pub fn assert_same_elements<T: PartialEq + std::fmt::Debug>(a: &[T], b: &[T]) {
     assert_eq!(a.len(), b.len(), "Vectors have different lengths");
-    
+
     for item in a {
         assert!(
             b.iter().any(|x| x == item),
@@ -90,10 +99,8 @@ pub fn assert_same_elements<T: PartialEq + std::fmt::Debug>(a: &[T], b: &[T]) {
 
 /// Helper function to run a command and capture its output for testing
 pub fn run_test_command(command: &str, args: &[&str]) -> Result<String> {
-    let output = std::process::Command::new(command)
-        .args(args)
-        .output()?;
-    
+    let output = std::process::Command::new(command).args(args).output()?;
+
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
@@ -104,17 +111,17 @@ where
 {
     // Save the current environment
     let mut old_values = Vec::new();
-    
+
     // Set test environment
     for (key, value) in env_vars {
         let old_value = std::env::var(key).ok();
         old_values.push((key, old_value));
         std::env::set_var(key, value);
     }
-    
+
     // Run the test
     let result = test_fn();
-    
+
     // Restore the environment
     for (key, old_value) in old_values {
         match old_value {
@@ -122,6 +129,6 @@ where
             None => std::env::remove_var(key),
         }
     }
-    
+
     result
 }

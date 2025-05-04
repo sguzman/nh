@@ -1,20 +1,30 @@
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::str;
+use std::{
+    collections::HashSet,
+    path::{
+        Path,
+        PathBuf,
+    },
+    str,
+};
 
-use color_eyre::{eyre, Result};
+use color_eyre::{
+    eyre,
+    Result,
+};
 use tempfile::TempDir;
 
 use crate::commands::Command;
 
 /// Retrieves the installed Nix version as a string.
 ///
-/// This function executes the `nix --version` command, parses the output to extract the version string,
-/// and returns it. If the version string cannot be found or parsed, it returns an error.
+/// This function executes the `nix --version` command, parses the output to
+/// extract the version string, and returns it. If the version string cannot be
+/// found or parsed, it returns an error.
 ///
 /// # Returns
 ///
-/// * `Result<String>` - The Nix version string or an error if the version cannot be retrieved.
+/// * `Result<String>` - The Nix version string or an error if the version
+///   cannot be retrieved.
 pub fn get_nix_version() -> Result<String> {
     let output = Command::new("nix")
         .arg("--version")
@@ -89,7 +99,10 @@ pub fn get_hostname() -> Result<String> {
     {
         use color_eyre::eyre::bail;
         use system_configuration::{
-            core_foundation::{base::TCFType, string::CFString},
+            core_foundation::{
+                base::TCFType,
+                string::CFString,
+            },
             sys::dynamic_store_copy_specific::SCDynamicStoreCopyLocalHostName,
         };
 
@@ -105,12 +118,13 @@ pub fn get_hostname() -> Result<String> {
 
 /// Retrieves all enabled experimental features in Nix.
 ///
-/// This function executes the `nix config show experimental-features` command and returns
-/// a HashSet of the enabled features.
+/// This function executes the `nix config show experimental-features` command
+/// and returns a `HashSet` of the enabled features.
 ///
 /// # Returns
 ///
-/// * `Result<HashSet<String>>` - A HashSet of enabled experimental features or an error.
+/// * `Result<HashSet<String>>` - A `HashSet` of enabled experimental features or
+///   an error.
 pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
     let output = Command::new("nix")
         .args(["config", "show", "experimental-features"])
@@ -122,8 +136,7 @@ pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
         None => return Ok(HashSet::new()),
     };
 
-    let enabled_features: HashSet<String> =
-        output_str.split_whitespace().map(String::from).collect();
+    let enabled_features: HashSet<String> = output_str.split_whitespace().map(String::from).collect();
 
     Ok(enabled_features)
 }
@@ -132,11 +145,13 @@ pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
 ///
 /// # Arguments
 ///
-/// * `required_features` - A slice of string slices representing the features required.
+/// * `required_features` - A slice of string slices representing the features
+///   required.
 ///
 /// # Returns
 ///
-/// * `Result<Vec<String>>` - A vector of missing experimental features or an error.
+/// * `Result<Vec<String>>` - A vector of missing experimental features or an
+///   error.
 pub fn get_missing_experimental_features(required_features: &[&str]) -> Result<Vec<String>> {
     let enabled_features = get_nix_experimental_features()?;
 

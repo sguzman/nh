@@ -1,8 +1,13 @@
-use std::cmp::Ordering;
-use std::env;
-use std::sync::Mutex;
+use std::{
+    cmp::Ordering,
+    env,
+    sync::Mutex,
+};
 
-use color_eyre::{eyre, Result};
+use color_eyre::{
+    eyre,
+    Result,
+};
 use semver::Version;
 
 use crate::util;
@@ -56,7 +61,7 @@ pub fn check_nix_version() -> Result<()> {
                 version,
                 min_version
             ))
-        }
+        },
         _ => Ok(()),
     }
 }
@@ -85,19 +90,16 @@ pub fn check_nix_features() -> Result<()> {
         Ok(enabled_features) => {
             let features_vec: Vec<_> = enabled_features.into_iter().collect();
             tracing::debug!("Enabled Nix features: {}", features_vec.join(", "));
-        }
+        },
         Err(e) => {
             tracing::warn!("Failed to get enabled Nix features: {}", e);
-        }
+        },
     }
 
     let missing_features = util::get_missing_experimental_features(&required_features)?;
 
     if !missing_features.is_empty() {
-        tracing::warn!(
-            "Missing required Nix features: {}",
-            missing_features.join(", ")
-        );
+        tracing::warn!("Missing required Nix features: {}", missing_features.join(", "));
         return Err(eyre::eyre!(
             "Missing required experimental features. Please enable: {}",
             missing_features.join(", ")
@@ -112,7 +114,8 @@ pub fn check_nix_features() -> Result<()> {
 ///
 /// # Returns
 ///
-/// * `Result<bool>` - True if a warning should be shown about the FLAKE variable, false otherwise
+/// * `Result<bool>` - True if a warning should be shown about the FLAKE
+///   variable, false otherwise
 pub fn setup_environment() -> Result<bool> {
     let mut do_warn = false;
 
@@ -135,9 +138,9 @@ pub fn setup_environment() -> Result<bool> {
     Ok(do_warn)
 }
 
-/// Consolidate all necessary checks for Nix functionality into a single function. This
-/// will be executed in the main function, but can be executed before critical commands
-/// to double-check if necessary.
+/// Consolidate all necessary checks for Nix functionality into a single
+/// function. This will be executed in the main function, but can be executed
+/// before critical commands to double-check if necessary.
 ///
 /// # Returns
 ///
@@ -153,8 +156,8 @@ pub fn verify_nix_environment() -> Result<()> {
 }
 
 // Environment variables are global state, so tests need to be run sequentially.
-// Using a mutex to ensure that env var manipulation in one test doesn't affect others.
-// Alternatively, run tests with `cargo test -- --test-threads=1`
+// Using a mutex to ensure that env var manipulation in one test doesn't affect
+// others. Alternatively, run tests with `cargo test -- --test-threads=1`
 #[allow(dead_code)] // suppress 'false' positives
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 

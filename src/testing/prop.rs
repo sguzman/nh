@@ -1,10 +1,19 @@
-use proptest::prelude::*;
-use proptest::strategy::{Strategy, ValueTree};
-use proptest::test_runner::{Config, TestRunner, TestError};
-use std::path::PathBuf;
-use std::sync::{Mutex, LazyLock};
+use std::{
+    path::PathBuf,
+    sync::{
+        LazyLock,
+        Mutex,
+    },
+};
 
-// Global mutex to prevent parallel property tests from interfering with each other
+use proptest::{
+    prelude::*,
+    strategy::Strategy,
+    test_runner::Config,
+};
+
+// Global mutex to prevent parallel property tests from interfering with each
+// other
 static PROP_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 /// Create a default proptest configuration suitable for nh
@@ -17,17 +26,17 @@ pub fn default_config() -> proptest::test_runner::Config {
 }
 
 /// Run a property test with the given configuration and initialization function
-pub fn with_proptest_config<F>(config: Config, init: F) 
-where 
+pub fn with_proptest_config<F>(config: Config, init: F)
+where
     F: FnOnce(),
 {
     // Acquire the lock to prevent parallel test runs
     let _lock = PROP_TEST_LOCK.lock().unwrap();
-    
+
     // Set the global config (just a placeholder, as we're not actually
     // directly using the config here - the proptest! macro handles that)
     let _config = config;
-    
+
     init();
     // The lock is released when _lock goes out of scope
 }
@@ -45,13 +54,10 @@ pub fn flake_reference_strategy() -> impl Strategy<Value = String> {
     prop_oneof![
         // Local file paths
         file_path_strategy().prop_map(|p| p.to_string_lossy().to_string()),
-        
         // GitHub references
         "github:[a-zA-Z0-9_-]{1,20}/[a-zA-Z0-9_-]{1,20}".prop_map(String::from),
-        
         // Direct paths
         "/[a-zA-Z0-9/_-]+".prop_map(String::from),
-        
         // Common flake references
         Just("nixpkgs".to_string()),
         Just("home-manager".to_string()),
@@ -62,8 +68,8 @@ pub fn flake_reference_strategy() -> impl Strategy<Value = String> {
 /// Strategy for generating valid attribute paths
 pub fn attribute_path_strategy() -> impl Strategy<Value = Vec<String>> {
     prop::collection::vec(
-        proptest::string::string_regex("[a-zA-Z0-9_]{1,10}").unwrap(), 
-        1..5
+        proptest::string::string_regex("[a-zA-Z0-9_]{1,10}").unwrap(),
+        1..5,
     )
 }
 

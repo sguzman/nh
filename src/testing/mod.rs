@@ -1,7 +1,8 @@
 // Testing infrastructure module for nh
 //
 // This module provides a specialized, isolated testing interface with
-// proptest-based property testing and a uniform interface for testing the codebase.
+// proptest-based property testing and a uniform interface for testing the
+// codebase.
 
 pub mod fixtures;
 pub mod harness;

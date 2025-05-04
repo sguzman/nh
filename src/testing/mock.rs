@@ -1,11 +1,14 @@
-use mockall::predicate::*;
-use mockall::*;
 use std::path::PathBuf;
+
 use color_eyre::Result;
+use mockall::{
+    predicate::*,
+    *,
+};
 
 /// Mock for command execution
 ///
-/// This allows testing code that shells out without actually 
+/// This allows testing code that shells out without actually
 /// running commands on the system.
 #[automock]
 pub trait CommandExecutor {
@@ -18,10 +21,8 @@ pub struct RealCommandExecutor;
 
 impl CommandExecutor for RealCommandExecutor {
     fn run_command<'a>(&self, cmd: &str, args: &[&'a str]) -> Result<String> {
-        let output = std::process::Command::new(cmd)
-            .args(args)
-            .output()?;
-        
+        let output = std::process::Command::new(cmd).args(args).output()?;
+
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
@@ -40,14 +41,14 @@ impl CommandExecutor for RealCommandExecutor {
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
-        
+
         if let Some(mut stdin) = child.stdin.take() {
             use std::io::Write;
             stdin.write_all(input.as_bytes())?;
         }
-        
+
         let output = child.wait_with_output()?;
-        
+
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
