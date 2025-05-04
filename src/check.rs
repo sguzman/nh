@@ -78,10 +78,12 @@ pub fn check_nix_features() -> Result<()> {
         required_features.push("repl-flake");
     }
 
-    if !util::has_all_experimental_features(&required_features)? {
+    let missing_features = util::get_missing_experimental_features(&required_features)?;
+
+    if !missing_features.is_empty() {
         return Err(eyre::eyre!(
             "Missing required experimental features. Please enable: {}",
-            required_features.join(", ")
+            missing_features.join(", ")
         ));
     }
 

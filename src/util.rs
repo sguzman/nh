@@ -144,3 +144,24 @@ pub fn has_all_experimental_features(features: &[&str]) -> Result<bool> {
     // Check if features_set is a subset of enabled_features
     Ok(features_set.is_subset(&enabled_features))
 }
+
+/// Gets the missing experimental features from a required list.
+///
+/// # Arguments
+///
+/// * `required_features` - A slice of string slices representing the features required.
+///
+/// # Returns
+///
+/// * `Result<Vec<String>>` - A vector of missing experimental features or an error.
+pub fn get_missing_experimental_features(required_features: &[&str]) -> Result<Vec<String>> {
+    let enabled_features = get_nix_experimental_features()?;
+
+    let missing_features: Vec<String> = required_features
+        .iter()
+        .filter(|&feature| !enabled_features.contains(*feature))
+        .map(|&s| s.to_string())
+        .collect();
+
+    Ok(missing_features)
+}
