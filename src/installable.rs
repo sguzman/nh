@@ -223,7 +223,7 @@ pub fn parse_attribute<S>(s: S) -> Vec<String>
 where
     S: AsRef<str>,
 {
-    let s = s.as_ref();
+    let s = s.as_ref().trim();
     let mut res = Vec::new();
 
     if s.is_empty() {
@@ -231,26 +231,48 @@ where
     }
 
     let mut in_quote = false;
-
     let mut elem = String::new();
+    
+    // Track if we've seen a dot and are waiting for the next element
+    let mut after_dot = false;
+    
     for char in s.chars() {
         match char {
             '.' => {
                 if !in_quote {
-                    res.push(elem.clone());
-                    elem = String::new();
+                    // Push the current element if not empty
+                    if !elem.is_empty() || !after_dot {
+                        res.push(elem.trim().to_string());
+                        elem = String::new();
+                    }
+                    after_dot = true;
                 } else {
                     elem.push(char);
                 }
             }
+            ' ' | '\t' => {
+                // Only add whitespace if in quotes or if we're within an element (not after dot)
+                if in_quote || (!elem.is_empty() && !after_dot) {
+                    elem.push(char);
+                }
+                // Otherwise ignore whitespace
+            }
             '"' => {
                 in_quote = !in_quote;
+                after_dot = false;
             }
-            _ => elem.push(char),
+            _ => {
+                // Any other character resets the after_dot flag
+                after_dot = false;
+                elem.push(char);
+            }
         }
     }
 
-    res.push(elem);
+    // Add the last element if it's not empty
+    if !elem.is_empty() {
+        res.push(elem.trim().to_string());
+    }
 
     if in_quote {
         panic!("Failed to parse attribute: {}", s);
