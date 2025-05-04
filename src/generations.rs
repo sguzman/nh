@@ -41,7 +41,8 @@ pub struct GenerationInfo {
     pub current: bool,
 }
 
-#[must_use] pub fn from_dir(generation_dir: &Path) -> Option<u64> {
+#[must_use]
+pub fn from_dir(generation_dir: &Path) -> Option<u64> {
     generation_dir
         .file_name()
         .and_then(|os_str| os_str.to_str())
@@ -172,7 +173,10 @@ pub fn print_info(mut generations: Vec<GenerationInfo>) {
     // Parse all dates at once and cache them
     let mut parsed_dates = HashMap::with_capacity(generations.len());
     for gen in &generations {
-        let date = DateTime::parse_from_rfc3339(&gen.date).map_or_else(|_| Local.timestamp_opt(0, 0).unwrap(), |dt| dt.with_timezone(&Local));
+        let date = DateTime::parse_from_rfc3339(&gen.date).map_or_else(
+            |_| Local.timestamp_opt(0, 0).unwrap(),
+            |dt| dt.with_timezone(&Local),
+        );
         parsed_dates.insert(gen.date.clone(), date.format("%Y-%m-%d %H:%M:%S").to_string());
     }
 

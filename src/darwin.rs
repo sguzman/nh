@@ -31,7 +31,10 @@ const CURRENT_PROFILE: &str = "/run/current-system";
 
 impl DarwinArgs {
     pub fn run(self) -> Result<()> {
-        use DarwinRebuildVariant::{Build, Switch};
+        use DarwinRebuildVariant::{
+            Build,
+            Switch,
+        };
         match self.subcommand {
             DarwinSubcommand::Switch(args) => args.rebuild(Switch),
             DarwinSubcommand::Build(args) => {
@@ -52,7 +55,10 @@ enum DarwinRebuildVariant {
 
 impl DarwinRebuildArgs {
     fn rebuild(self, variant: DarwinRebuildVariant) -> Result<()> {
-        use DarwinRebuildVariant::{Build, Switch};
+        use DarwinRebuildVariant::{
+            Build,
+            Switch,
+        };
 
         if nix::unistd::Uid::effective().is_root() {
             bail!("Don't run nh os as root. I will call sudo internally as needed");

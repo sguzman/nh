@@ -38,7 +38,8 @@ use uzers::os::unix::UserExt;
 
 use crate::{
     commands::Command,
-    Result, interface,
+    interface,
+    Result,
 };
 
 // Nix impl:

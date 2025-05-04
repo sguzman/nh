@@ -3,8 +3,8 @@ use color_eyre::Result;
 use tracing::instrument;
 
 use crate::{
-    interface::Main,
     interface,
+    interface::Main,
 };
 
 impl interface::CompletionArgs {

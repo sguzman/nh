@@ -44,7 +44,12 @@ const SPEC_LOCATION: &str = "/etc/specialisation";
 
 impl interface::OsArgs {
     pub fn run(self) -> Result<()> {
-        use OsRebuildVariant::{Boot, Build, Switch, Test};
+        use OsRebuildVariant::{
+            Boot,
+            Build,
+            Switch,
+            Test,
+        };
         match self.subcommand {
             OsSubcommand::Boot(args) => args.rebuild(Boot),
             OsSubcommand::Test(args) => args.rebuild(Test),
@@ -71,7 +76,12 @@ enum OsRebuildVariant {
 
 impl OsRebuildArgs {
     fn rebuild(self, variant: OsRebuildVariant) -> Result<()> {
-        use OsRebuildVariant::{Boot, Build, Switch, Test};
+        use OsRebuildVariant::{
+            Boot,
+            Build,
+            Switch,
+            Test,
+        };
 
         let elevate = if self.bypass_root_check {
             warn!("Bypassing root check, now running nix as root");

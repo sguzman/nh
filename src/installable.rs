@@ -74,7 +74,12 @@ impl FromArgMatches for Installable {
             let reference = elems.next().unwrap().to_owned();
             return Ok(Self::Flake {
                 reference,
-                attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                attribute: parse_attribute(
+                    elems
+                        .next()
+                        .map(std::string::ToString::to_string)
+                        .unwrap_or_default(),
+                ),
             });
         }
 
@@ -87,7 +92,12 @@ impl FromArgMatches for Installable {
                     let mut elems = f.splitn(2, '#');
                     return Ok(Self::Flake {
                         reference: elems.next().unwrap().to_owned(),
-                        attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                        attribute: parse_attribute(
+                            elems
+                                .next()
+                                .map(std::string::ToString::to_string)
+                                .unwrap_or_default(),
+                        ),
                     });
                 }
             } else if subcommand == "home" {
@@ -95,7 +105,12 @@ impl FromArgMatches for Installable {
                     let mut elems = f.splitn(2, '#');
                     return Ok(Self::Flake {
                         reference: elems.next().unwrap().to_owned(),
-                        attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                        attribute: parse_attribute(
+                            elems
+                                .next()
+                                .map(std::string::ToString::to_string)
+                                .unwrap_or_default(),
+                        ),
                     });
                 }
             } else if subcommand == "darwin" {
@@ -103,7 +118,12 @@ impl FromArgMatches for Installable {
                     let mut elems = f.splitn(2, '#');
                     return Ok(Self::Flake {
                         reference: elems.next().unwrap().to_owned(),
-                        attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                        attribute: parse_attribute(
+                            elems
+                                .next()
+                                .map(std::string::ToString::to_string)
+                                .unwrap_or_default(),
+                        ),
                     });
                 }
             }
@@ -113,7 +133,12 @@ impl FromArgMatches for Installable {
             let mut elems = f.splitn(2, '#');
             return Ok(Self::Flake {
                 reference: elems.next().unwrap().to_owned(),
-                attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                attribute: parse_attribute(
+                    elems
+                        .next()
+                        .map(std::string::ToString::to_string)
+                        .unwrap_or_default(),
+                ),
             });
         }
 
@@ -121,7 +146,12 @@ impl FromArgMatches for Installable {
             let mut elems = f.splitn(2, '#');
             return Ok(Self::Flake {
                 reference: elems.next().unwrap().to_owned(),
-                attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                attribute: parse_attribute(
+                    elems
+                        .next()
+                        .map(std::string::ToString::to_string)
+                        .unwrap_or_default(),
+                ),
             });
         }
 
@@ -129,7 +159,12 @@ impl FromArgMatches for Installable {
             let mut elems = f.splitn(2, '#');
             return Ok(Self::Flake {
                 reference: elems.next().unwrap().to_owned(),
-                attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                attribute: parse_attribute(
+                    elems
+                        .next()
+                        .map(std::string::ToString::to_string)
+                        .unwrap_or_default(),
+                ),
             });
         }
 
@@ -137,7 +172,12 @@ impl FromArgMatches for Installable {
             let mut elems = f.splitn(2, '#');
             return Ok(Self::Flake {
                 reference: elems.next().unwrap().to_owned(),
-                attribute: parse_attribute(elems.next().map(std::string::ToString::to_string).unwrap_or_default()),
+                attribute: parse_attribute(
+                    elems
+                        .next()
+                        .map(std::string::ToString::to_string)
+                        .unwrap_or_default(),
+                ),
             });
         }
 
@@ -291,7 +331,8 @@ fn test_parse_attribute() {
 }
 
 impl Installable {
-    #[must_use] pub fn to_args(&self) -> Vec<String> {
+    #[must_use]
+    pub fn to_args(&self) -> Vec<String> {
         let mut res = Vec::new();
         match self {
             Self::Flake { reference, attribute } => {
@@ -371,7 +412,8 @@ fn test_join_attribute() {
 }
 
 impl Installable {
-    #[must_use] pub const fn str_kind(&self) -> &str {
+    #[must_use]
+    pub const fn str_kind(&self) -> &str {
         match self {
             Self::Flake { .. } => "flake",
             Self::File { .. } => "file",

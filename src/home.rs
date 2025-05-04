@@ -30,7 +30,10 @@ use crate::{
 
 impl interface::HomeArgs {
     pub fn run(self) -> Result<()> {
-        use HomeRebuildVariant::{Build, Switch};
+        use HomeRebuildVariant::{
+            Build,
+            Switch,
+        };
         match self.subcommand {
             HomeSubcommand::Switch(args) => args.rebuild(Switch),
             HomeSubcommand::Build(args) => {

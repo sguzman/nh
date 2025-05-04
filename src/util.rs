@@ -123,8 +123,8 @@ pub fn get_hostname() -> Result<String> {
 ///
 /// # Returns
 ///
-/// * `Result<HashSet<String>>` - A `HashSet` of enabled experimental features or
-///   an error.
+/// * `Result<HashSet<String>>` - A `HashSet` of enabled experimental features
+///   or an error.
 pub fn get_nix_experimental_features() -> Result<HashSet<String>> {
     let output = Command::new("nix")
         .args(["config", "show", "experimental-features"])
