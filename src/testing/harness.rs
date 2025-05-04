@@ -1,9 +1,13 @@
 use std::sync::Once;
+use std::sync::{Mutex, LazyLock};
 
 use tracing_subscriber::{fmt, prelude::*, registry, EnvFilter};
 
 // We gotta make sure test initialization happens *only* once
 static INIT: Once = Once::new();
+
+// Global mutex to prevent parallel environment manipulation
+static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 // Set the log level during tests
 const TEST_LOG_ENV: &str = "NH_TEST_LOG";
@@ -63,6 +67,7 @@ pub fn test_init() -> TestGuard {
 /// Provides a temporary environment context for tests
 pub struct EnvContext {
     original: std::collections::HashMap<String, Option<String>>,
+    _lock_guard: Option<std::sync::MutexGuard<'static, ()>>,
 }
 
 impl EnvContext {
@@ -70,6 +75,15 @@ impl EnvContext {
     pub fn new() -> Self {
         Self {
             original: std::collections::HashMap::new(),
+            _lock_guard: None,
+        }
+    }
+
+    /// Create a new environment context with locking to prevent parallel tests from interfering
+    pub fn with_lock() -> Self {
+        Self {
+            original: std::collections::HashMap::new(),
+            _lock_guard: Some(ENV_LOCK.lock().unwrap()),
         }
     }
 
