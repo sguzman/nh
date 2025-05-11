@@ -318,7 +318,9 @@ impl OsRollbackArgs {
         let mut _rollback_profile = false;
 
         // Get the final profile path with specialisation if any
-        let final_profile = platform::get_target_profile(&generation_link, &target_specialisation);
+        let target_specialisation_option = target_specialisation;
+        let final_profile =
+            platform::get_target_profile(&generation_link, &target_specialisation_option);
 
         // Activate the configuration
         info!("Activating...");

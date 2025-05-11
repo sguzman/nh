@@ -3,6 +3,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use color_eyre::eyre::bail;
+use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
 use tracing::{debug, info, warn};
 
@@ -44,13 +45,14 @@ pub fn extend_installable_for_platform(
 ) -> Result<Installable> {
     use tracing::debug;
 
-    use crate::commands;
     use crate::util::get_hostname;
+
     match &mut installable {
         Installable::Flake {
             reference,
             attribute,
         } => {
+            // If attribute path is already specified, use it as-is
             if !attribute.is_empty() {
                 debug!(
                     "Using explicit attribute path from installable: {:?}",
@@ -58,77 +60,49 @@ pub fn extend_installable_for_platform(
                 );
                 return Ok(installable);
             }
+
+            // Otherwise, build the attribute path
             attribute.push(config_type.to_string());
             let flake_reference = reference.clone();
-            let mut found_config = false;
+
+            // Try to find the configuration by name if one was provided
             if let Some(config_name) = config_name {
-                let func = format!(r#"x: x ? "{config_name}""#);
-                let check_res = commands::Command::new("nix")
-                    .arg("eval")
-                    .args(extra_args)
-                    .arg("--apply")
-                    .arg(&func)
-                    .args(
-                        (Installable::Flake {
-                            reference: flake_reference.clone(),
-                            attribute: attribute.clone(),
-                        })
-                        .to_args(),
-                    )
-                    .run_capture();
-                if let Ok(res) = check_res {
-                    if res.map(|s| s.trim().to_owned()).as_deref() == Some("true") {
-                        debug!("Using explicit configuration from flag: {}", config_name);
-                        attribute.push(config_name);
-                        if push_drv {
-                            attribute.extend(extra_path.iter().map(|s| (*s).to_string()));
-                        }
-                        found_config = true;
-                    }
+                if find_config_in_flake(
+                    &config_name,
+                    attribute,
+                    &flake_reference,
+                    extra_args,
+                    push_drv,
+                    extra_path,
+                )? {
+                    return Ok(installable);
                 }
-                if !found_config {
-                    return Err(color_eyre::eyre::eyre!(
-                        "Explicitly specified configuration not found in flake."
-                    ));
+
+                return Err(color_eyre::eyre::eyre!(
+                    "Explicitly specified configuration not found in flake."
+                ));
+            }
+
+            // Try to auto-detect the configuration
+            let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+            let hostname = get_hostname().unwrap_or_else(|_| "host".to_string());
+
+            for attr_name in [format!("{username}@{hostname}"), username] {
+                if find_config_in_flake(
+                    &attr_name,
+                    attribute,
+                    &flake_reference,
+                    extra_args,
+                    push_drv,
+                    extra_path,
+                )? {
+                    return Ok(installable);
                 }
             }
-            if !found_config {
-                // Try to auto-detect the configuration if none was specified
-                let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
-                let hostname = get_hostname().unwrap_or_else(|_| "host".to_string());
-                for attr_name in [format!("{username}@{hostname}"), username] {
-                    let func = format!(r#"x: x ? "{attr_name}""#);
-                    let check_res = commands::Command::new("nix")
-                        .arg("eval")
-                        .args(extra_args)
-                        .arg("--apply")
-                        .arg(&func)
-                        .args(
-                            (Installable::Flake {
-                                reference: flake_reference.clone(),
-                                attribute: attribute.clone(),
-                            })
-                            .to_args(),
-                        )
-                        .run_capture();
-                    if let Ok(res) = check_res {
-                        if res.map(|s| s.trim().to_owned()).as_deref() == Some("true") {
-                            debug!("Using automatically detected configuration: {}", attr_name);
-                            attribute.push(attr_name);
-                            if push_drv {
-                                attribute.extend(extra_path.iter().map(|s| (*s).to_string()));
-                            }
-                            found_config = true;
-                            break;
-                        }
-                    }
-                }
-                if !found_config {
-                    return Err(color_eyre::eyre::eyre!(
-                        "Couldn't find configuration automatically in flake."
-                    ));
-                }
-            }
+
+            return Err(color_eyre::eyre::eyre!(
+                "Couldn't find configuration automatically in flake."
+            ));
         }
         Installable::File { attribute, .. } | Installable::Expression { attribute, .. } => {
             if push_drv {
@@ -140,6 +114,48 @@ pub fn extend_installable_for_platform(
         }
     }
     Ok(installable)
+}
+
+/// Find a configuration in a flake
+///
+/// Returns true if the configuration was found, false otherwise
+fn find_config_in_flake(
+    config_name: &str,
+    attribute: &mut Vec<String>,
+    flake_reference: &str,
+    extra_args: &[OsString],
+    push_drv: bool,
+    extra_path: &[&str],
+) -> Result<bool> {
+    let func = format!(r#"x: x ? "{config_name}""#);
+    let check_res = commands::Command::new("nix")
+        .arg("eval")
+        .args(extra_args)
+        .arg("--apply")
+        .arg(&func)
+        .args(
+            (Installable::Flake {
+                reference: flake_reference.to_string(),
+                attribute: attribute.clone(),
+            })
+            .to_args(),
+        )
+        .run_capture();
+
+    if let Ok(res) = check_res {
+        if res.map(|s| s.trim().to_owned()).as_deref() == Some("true") {
+            debug!("Found configuration: {}", config_name);
+            attribute.push(config_name.to_string());
+
+            if push_drv {
+                attribute.extend(extra_path.iter().map(|s| (*s).to_string()));
+            }
+
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Handles common specialisation logic for all platforms
@@ -229,7 +245,14 @@ pub fn compare_configurations(
         .arg(current_profile)
         .arg(target_profile)
         .message(message)
-        .run()?;
+        .run()
+        .with_context(|| {
+            format!(
+                "Failed to compare configurations with nvd: {} vs {}",
+                current_profile,
+                target_profile.display()
+            )
+        })?;
 
     Ok(())
 }
@@ -250,7 +273,8 @@ pub fn build_configuration(
         .builder(builder)
         .message(message)
         .nom(!no_nom)
-        .run()?;
+        .run()
+        .with_context(|| format!("Failed to build configuration: {}", message))?;
 
     Ok(())
 }
@@ -290,7 +314,8 @@ pub fn run_repl(
 
     debug!("Running nix repl with installable: {:?}", installable);
 
-    // Note: Using stdlib Command directly is necessary for interactive REPL
+    // NOTE: Using stdlib Command directly is necessary for interactive REPL
+    // Interactivity implodes otherwise.
     use std::process::{Command as StdCommand, Stdio};
 
     let mut command = StdCommand::new("nix");
@@ -368,6 +393,7 @@ pub fn process_specialisation(
 /// # Returns
 ///
 /// The path to the built configuration, which can be used for activation
+#[allow(clippy::too_many_arguments)]
 pub fn handle_rebuild_workflow(
     installable: Installable,
     config_type: &str,
@@ -384,98 +410,32 @@ pub fn handle_rebuild_workflow(
     current_profile: &str,
     skip_compare: bool,
 ) -> Result<PathBuf> {
-    // Darwin configurations have a different structure that requires special handling
-    if config_type == "darwinConfigurations" {
-        // First construct the proper attribute path for darwin configs
-        let mut processed_installable = installable;
-        if let Installable::Flake {
-            ref mut attribute, ..
-        } = processed_installable
-        {
-            // Only set the attribute path if user hasn't already specified one
-            if attribute.is_empty() {
-                attribute.push(String::from(config_type));
-                if let Some(name) = config_name {
-                    attribute.push(name);
-                }
-            }
-        }
+    // Convert the extra_args to OsString for the config struct
+    let extra_args_vec: Vec<OsString> = extra_args
+        .iter()
+        .map(|arg| arg.as_ref().to_os_string())
+        .collect();
 
-        // Next, add config.system.build.<attr> to the path to access the derivation
-        let mut toplevel_attr = processed_installable;
-        if let Installable::Flake {
-            ref mut attribute, ..
-        } = toplevel_attr
-        {
-            // All darwin configurations expose their outputs under system.build
-            let toplevel_path = ["config", "system", "build"];
-            attribute.extend(toplevel_path.iter().map(|s| (*s).to_string()));
-
-            // Add the final component (usually "toplevel")
-            if !extra_path.is_empty() {
-                attribute.push(extra_path[0].to_string());
-            }
-        }
-
-        // Build the configuration
-        build_configuration(
-            toplevel_attr,
-            out_path,
-            extra_args,
-            builder,
-            message,
-            no_nom,
-        )?;
-
-        // Darwin doesn't use the specialisation mechanism like NixOS
-        let target_profile = out_path.get_path().to_owned();
-
-        // Run the diff to show changes
-        if !skip_compare {
-            compare_configurations(current_profile, &target_profile, false, "Comparing changes")?;
-        }
-
-        return Ok(target_profile);
-    }
-
-    // NixOS and Home Manager follow a different pattern
-    // Configure the installable with platform-specific attributes
-    let configured_installable = extend_installable_for_platform(
+    // Create a config struct from the parameters
+    let config = RebuildWorkflowConfig {
         installable,
         config_type,
         extra_path,
         config_name,
-        true,
-        &extra_args
-            .iter()
-            .map(std::convert::AsRef::as_ref)
-            .map(std::convert::Into::into)
-            .collect::<Vec<_>>(),
-    )?;
-
-    // Build the configuration
-    build_configuration(
-        configured_installable,
         out_path,
-        extra_args,
+        extra_args: extra_args_vec,
         builder,
         message,
         no_nom,
-    )?;
+        specialisation_path,
+        no_specialisation,
+        specialisation,
+        current_profile,
+        skip_compare,
+    };
 
-    // Process any specialisations (NixOS/Home-Manager specific feature)
-    let target_specialisation =
-        process_specialisation(no_specialisation, specialisation, specialisation_path)?;
-
-    // Get target profile path
-    let target_profile = get_target_profile(out_path, &target_specialisation);
-
-    // Compare configurations if applicable
-    if !skip_compare {
-        compare_configurations(current_profile, &target_profile, false, "Comparing changes")?;
-    }
-
-    Ok(target_profile)
+    // Delegate to the new implementation
+    handle_rebuild_workflow_with_config(config)
 }
 
 /// Determine proper hostname based on provided or automatically detected
@@ -498,7 +458,7 @@ pub fn get_target_hostname(
         Some(hostname) => hostname,
         None => match system_hostname.clone() {
             Some(hostname) => hostname,
-            None => bail!("Unable to fetch hostname automatically, and no hostname supplied. Please specify explicitly.")
+            None => bail!("Unable to fetch hostname automatically. Please specify explicitly with --hostname.")
         }
     };
 
@@ -507,6 +467,11 @@ pub fn get_target_hostname(
         && system_hostname.is_some()
         && system_hostname.unwrap() != target_hostname;
 
+    debug!(
+        ?target_hostname,
+        ?hostname_mismatch,
+        "Determined target hostname"
+    );
     Ok((target_hostname, hostname_mismatch))
 }
 
@@ -529,4 +494,155 @@ pub fn activate_nixos_configuration(
         .message(message)
         .elevate(elevate)
         .run()
+}
+
+/// Configuration options for rebuilding workflows
+pub struct RebuildWorkflowConfig<'a> {
+    /// The Nix installable representing the configuration
+    pub installable: Installable,
+
+    /// The configuration type (e.g., "nixosConfigurations", "darwinConfigurations")
+    pub config_type: &'a str,
+
+    /// Additional path elements for the attribute path
+    pub extra_path: &'a [&'a str],
+
+    /// Optional hostname or configuration name
+    pub config_name: Option<String>,
+
+    /// Output path for the build result
+    pub out_path: &'a dyn crate::util::MaybeTempPath,
+
+    /// Additional arguments to pass to the build command as OsStrings
+    pub extra_args: Vec<OsString>,
+
+    /// Optional remote builder to use
+    pub builder: Option<String>,
+
+    /// Message to display during the build process
+    pub message: &'a str,
+
+    /// Whether to disable nix-output-monitor
+    pub no_nom: bool,
+
+    /// Path to read specialisations from
+    pub specialisation_path: &'a str,
+
+    /// Whether to ignore specialisations
+    pub no_specialisation: bool,
+
+    /// Optional explicit specialisation to use
+    pub specialisation: Option<String>,
+
+    /// Path to the current system profile for comparison
+    pub current_profile: &'a str,
+
+    /// Whether to skip comparing the new and current configuration
+    pub skip_compare: bool,
+}
+
+/// Execute common actions for a rebuild operation across platforms using configuration struct
+///
+/// This function takes a configuration struct instead of many individual parameters
+fn handle_rebuild_workflow_with_config(config: RebuildWorkflowConfig) -> Result<PathBuf> {
+    // Special handling for darwin configurations
+    if config.config_type == "darwinConfigurations" {
+        // First construct the proper attribute path for darwin configs
+        let mut processed_installable = config.installable;
+        if let Installable::Flake {
+            ref mut attribute, ..
+        } = processed_installable
+        {
+            // Only set the attribute path if user hasn't already specified one
+            if attribute.is_empty() {
+                attribute.push(String::from(config.config_type));
+                if let Some(name) = &config.config_name {
+                    attribute.push(name.clone());
+                }
+            }
+        }
+
+        // Next, add config.system.build.<attr> to the path to access the derivation
+        let mut toplevel_attr = processed_installable;
+        if let Installable::Flake {
+            ref mut attribute, ..
+        } = toplevel_attr
+        {
+            // All darwin configurations expose their outputs under system.build
+            let toplevel_path = ["config", "system", "build"];
+            attribute.extend(toplevel_path.iter().map(|s| (*s).to_string()));
+
+            // Add the final component (usually "toplevel")
+            if !config.extra_path.is_empty() {
+                attribute.push(config.extra_path[0].to_string());
+            }
+        }
+
+        // Build the configuration
+        build_configuration(
+            toplevel_attr,
+            config.out_path,
+            &config.extra_args,
+            config.builder.clone(),
+            config.message,
+            config.no_nom,
+        )?;
+
+        // Darwin doesn't use the specialisation mechanism like NixOS
+        let target_profile = config.out_path.get_path().to_owned();
+
+        // Run the diff to show changes
+        if !config.skip_compare {
+            compare_configurations(
+                config.current_profile,
+                &target_profile,
+                false,
+                "Comparing changes",
+            )?;
+        }
+
+        return Ok(target_profile);
+    }
+
+    // Configure the installable with platform-specific attributes
+    let configured_installable = extend_installable_for_platform(
+        config.installable,
+        config.config_type,
+        config.extra_path,
+        config.config_name.clone(),
+        true,
+        &config.extra_args,
+    )?;
+
+    // Build the configuration
+    build_configuration(
+        configured_installable,
+        config.out_path,
+        &config.extra_args,
+        config.builder.clone(),
+        config.message,
+        config.no_nom,
+    )?;
+
+    // Process any specialisations (NixOS/Home-Manager specific feature)
+    let target_specialisation = process_specialisation(
+        config.no_specialisation,
+        config.specialisation.clone(),
+        config.specialisation_path,
+    )?;
+
+    // Get target profile path
+    let target_profile = get_target_profile(config.out_path, &target_specialisation);
+
+    // Compare configurations if applicable
+    if !config.skip_compare {
+        compare_configurations(
+            config.current_profile,
+            &target_profile,
+            false,
+            "Comparing changes",
+        )?;
+    }
+
+    Ok(target_profile)
 }
