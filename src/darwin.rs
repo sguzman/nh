@@ -1,16 +1,11 @@
-use std::env;
-
-use color_eyre::eyre::{bail, Context};
+use color_eyre::eyre::bail;
+use color_eyre::Result;
 use tracing::{debug, info, warn};
 
-use crate::commands;
 use crate::commands::Command;
-use crate::installable::Installable;
 use crate::interface::{DarwinArgs, DarwinRebuildArgs, DarwinReplArgs, DarwinSubcommand};
-use crate::nixos::toplevel_for;
 use crate::update::update;
-use crate::util::get_hostname;
-use crate::Result;
+use crate::util::platform;
 
 const SYSTEM_PROFILE: &str = "/nix/var/nix/profiles/system";
 const CURRENT_PROFILE: &str = "/run/current-system";
@@ -40,77 +35,41 @@ impl DarwinRebuildArgs {
     fn rebuild(self, variant: DarwinRebuildVariant) -> Result<()> {
         use DarwinRebuildVariant::{Build, Switch};
 
-        if nix::unistd::Uid::effective().is_root() {
-            bail!("Don't run nh os as root. I will call sudo internally as needed");
-        }
+        // Check if we're running as root
+        platform::check_not_root(false)?;
 
         if self.update_args.update {
             update(&self.common.installable, self.update_args.update_input)?;
         }
 
-        let hostname = self.hostname.ok_or(()).or_else(|()| get_hostname())?;
+        // Get the hostname
+        let (hostname, _) = platform::get_target_hostname(self.hostname, false)?;
 
-        let out_path: Box<dyn crate::util::MaybeTempPath> = match self.common.out_link {
-            Some(ref p) => Box::new(p.clone()),
-            None => Box::new({
-                let dir = tempfile::Builder::new().prefix("nh-os").tempdir()?;
-                (dir.as_ref().join("result"), dir)
-            }),
-        };
-
+        // Create output path
+        let out_path = platform::create_output_path(self.common.out_link, "nh-darwin")?;
         debug!(?out_path);
 
         // Use NH_DARWIN_FLAKE if available, otherwise use the provided installable
-        let installable = if let Ok(darwin_flake) = env::var("NH_DARWIN_FLAKE") {
-            debug!("Using NH_DARWIN_FLAKE: {}", darwin_flake);
+        let installable =
+            platform::resolve_env_installable("NH_DARWIN_FLAKE", self.common.installable.clone());
 
-            let mut elems = darwin_flake.splitn(2, '#');
-            let reference = elems.next().unwrap().to_owned();
-            let attribute = elems
-                .next()
-                .map(crate::installable::parse_attribute)
-                .unwrap_or_default();
-
-            Installable::Flake {
-                reference,
-                attribute,
-            }
-        } else {
-            self.common.installable.clone()
-        };
-
-        let mut processed_installable = installable;
-        if let Installable::Flake {
-            ref mut attribute, ..
-        } = processed_installable
-        {
-            // If user explicitly selects some other attribute, don't push darwinConfigurations
-            if attribute.is_empty() {
-                attribute.push(String::from("darwinConfigurations"));
-                attribute.push(hostname.clone());
-            }
-        }
-
-        let toplevel = toplevel_for(hostname, processed_installable, "toplevel");
-
-        commands::Build::new(toplevel)
-            .extra_arg("--out-link")
-            .extra_arg(out_path.get_path())
-            .extra_args(&self.extra_args)
-            .message("Building Darwin configuration")
-            .nom(!self.common.no_nom)
-            .run()?;
-
-        let target_profile = out_path.get_path().to_owned();
-
-        target_profile.try_exists().context("Doesn't exist")?;
-
-        Command::new("nvd")
-            .arg("diff")
-            .arg(CURRENT_PROFILE)
-            .arg(&target_profile)
-            .message("Comparing changes")
-            .run()?;
+        // Build the configuration
+        let _target_profile = platform::handle_rebuild_workflow(
+            installable,
+            "darwinConfigurations",
+            &["toplevel"],
+            Some(hostname),
+            out_path.as_ref(),
+            &self.extra_args,
+            None, // No builder
+            "Building Darwin configuration",
+            self.common.no_nom,
+            "",    // No specialisation path for Darwin
+            false, // No specialisation
+            None,  // No specialisation
+            CURRENT_PROFILE,
+            false, // Don't skip comparison
+        )?;
 
         if self.common.ask && !self.common.dry && !matches!(variant, Build) {
             info!("Apply the config?");
@@ -121,7 +80,7 @@ impl DarwinRebuildArgs {
             }
         }
 
-        if matches!(variant, Switch) {
+        if matches!(variant, Switch) && !self.common.dry {
             Command::new("nix")
                 .args(["build", "--no-link", "--profile", SYSTEM_PROFILE])
                 .arg(out_path.get_path())
@@ -133,11 +92,9 @@ impl DarwinRebuildArgs {
             let activate_user = out_path.get_path().join("activate-user");
 
             // Determine if we need to elevate privileges
-            let needs_elevation = !activate_user
-                .try_exists()
-                .context("Failed to check if activate-user file exists")?
+            let needs_elevation = !activate_user.try_exists().unwrap_or(false)
                 || std::fs::read_to_string(&activate_user)
-                    .context("Failed to read activate-user file")?
+                    .unwrap_or_default()
                     .contains("# nix-darwin: deprecated");
 
             // Create and run the activation command with or without elevation
@@ -160,45 +117,21 @@ impl DarwinRebuildArgs {
 impl DarwinReplArgs {
     fn run(self) -> Result<()> {
         // Use NH_DARWIN_FLAKE if available, otherwise use the provided installable
-        let mut target_installable = if let Ok(darwin_flake) = env::var("NH_DARWIN_FLAKE") {
-            debug!("Using NH_DARWIN_FLAKE: {}", darwin_flake);
+        let installable = platform::resolve_env_installable("NH_DARWIN_FLAKE", self.installable);
 
-            let mut elems = darwin_flake.splitn(2, '#');
-            let reference = elems.next().unwrap().to_owned();
-            let attribute = elems
-                .next()
-                .map(crate::installable::parse_attribute)
-                .unwrap_or_default();
-
-            Installable::Flake {
-                reference,
-                attribute,
-            }
-        } else {
-            self.installable
+        // Get hostname for the configuration
+        let hostname = match self.hostname {
+            Some(h) => h,
+            None => crate::util::get_hostname()?,
         };
 
-        if matches!(target_installable, Installable::Store { .. }) {
-            bail!("Nix doesn't support nix store installables.");
-        }
-
-        let hostname = self.hostname.ok_or(()).or_else(|()| get_hostname())?;
-
-        if let Installable::Flake {
-            ref mut attribute, ..
-        } = target_installable
-        {
-            if attribute.is_empty() {
-                attribute.push(String::from("darwinConfigurations"));
-                attribute.push(hostname);
-            }
-        }
-
-        Command::new("nix")
-            .arg("repl")
-            .args(target_installable.to_args())
-            .run()?;
-
-        Ok(())
+        // Start an interactive Nix REPL with the darwin configuration
+        platform::run_repl(
+            installable,
+            "darwinConfigurations",
+            &[], // No extra path needed
+            Some(hostname),
+            &[], // No extra arguments
+        )
     }
 }
