@@ -121,14 +121,14 @@ impl HomeRebuildArgs {
             Some(spec) => Box::new(out_path.get_path().join("specialisation").join(spec)),
         };
 
-        // just do nothing for None case (fresh installs)
+        // Just do nothing for None case (fresh installs)
         if let Some(generation) = prev_generation {
-            Command::new("nvd")
-                .arg("diff")
-                .arg(generation)
-                .arg(target_profile.get_path())
-                .message("Comparing changes")
-                .run()?;
+            platform::compare_configurations(
+                generation.to_str().unwrap_or(""),
+                target_profile.get_path(),
+                false,
+                "Comparing changes",
+            )?;
         }
 
         if self.common.dry || matches!(variant, Build) {
