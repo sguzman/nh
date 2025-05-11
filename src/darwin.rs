@@ -9,10 +9,18 @@ use crate::util::get_hostname;
 use crate::util::platform;
 use crate::Result;
 
+/// System profile path for darwin configurations
 const SYSTEM_PROFILE: &str = "/nix/var/nix/profiles/system";
+/// Current system profile path for darwin
 const CURRENT_PROFILE: &str = "/run/current-system";
 
 impl DarwinArgs {
+    /// Entry point for processing darwin commands
+    ///
+    /// Handles the different subcommands for darwin configurations:
+    /// - Switch: Builds and activates the configuration
+    /// - Build: Only builds the configuration
+    /// - Repl: Opens a REPL for exploring the configuration
     pub fn run(self) -> Result<()> {
         use DarwinRebuildVariant::{Build, Switch};
         match self.subcommand {
@@ -28,12 +36,25 @@ impl DarwinArgs {
     }
 }
 
+/// Variants of the darwin rebuild operation
+///
+/// Each variant represents a different mode of operation:
+/// - Switch: Build and activate the configuration
+/// - Build: Only build the configuration without activation
 enum DarwinRebuildVariant {
     Switch,
     Build,
 }
 
 impl DarwinRebuildArgs {
+    /// Performs the rebuild operation for darwin configurations
+    ///
+    /// This function handles building and potentially activating darwin configurations.
+    /// It first builds the configuration, then shows a diff of changes compared to the
+    /// current system, and finally activates the configuration if needed.
+    ///
+    /// The darwin activation process is unique and requires special handling compared
+    /// to `NixOS`, particularly around determining whether root privileges are needed.
     fn rebuild(self, variant: DarwinRebuildVariant) -> Result<()> {
         use DarwinRebuildVariant::{Build, Switch};
 
@@ -117,6 +138,10 @@ impl DarwinRebuildArgs {
 }
 
 impl DarwinReplArgs {
+    /// Opens a Nix REPL for exploring darwin configurations
+    ///
+    /// Provides an interactive environment to explore and evaluate
+    /// components of a darwin configuration.
     fn run(self) -> Result<()> {
         if let Installable::Store { .. } = self.installable {
             bail!("Nix doesn't support nix store installables.");

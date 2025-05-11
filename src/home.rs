@@ -10,6 +10,12 @@ use crate::update::update;
 use crate::util::platform;
 
 impl interface::HomeArgs {
+    /// Entry point for processing home-manager commands
+    ///
+    /// Handles the different subcommands for home-manager configurations:
+    /// - Switch: Builds and activates the configuration
+    /// - Build: Only builds the configuration
+    /// - Repl: Opens a REPL for exploring the configuration
     pub fn run(self) -> Result<()> {
         use HomeRebuildVariant::{Build, Switch};
         match self.subcommand {
@@ -25,6 +31,11 @@ impl interface::HomeArgs {
     }
 }
 
+/// Variants of the home-manager rebuild operation
+///
+/// Represents different actions that can be taken with a home-manager configuration:
+/// - Build: Only build the configuration without activating it
+/// - Switch: Build and activate the configuration
 #[derive(Debug)]
 enum HomeRebuildVariant {
     Build,
@@ -32,6 +43,18 @@ enum HomeRebuildVariant {
 }
 
 impl HomeRebuildArgs {
+    /// Performs the rebuild operation for home-manager configurations
+    ///
+    /// This function handles building and potentially activating home-manager configurations.
+    /// The workflow:
+    /// 1. Updates the flake if requested
+    /// 2. Creates a temporary output path
+    /// 3. Builds the configuration with proper specialisation handling
+    /// 4. Compares with the previous generation if it exists
+    /// 5. Activates the configuration if needed
+    ///
+    /// Home Manager has its own specialisation mechanism which this function handles
+    /// by looking in ~/.local/share/home-manager/specialisation.
     fn rebuild(self, variant: HomeRebuildVariant) -> Result<()> {
         use HomeRebuildVariant::Build;
 
@@ -138,6 +161,11 @@ impl HomeRebuildArgs {
 }
 
 impl HomeReplArgs {
+    /// Opens a Nix REPL for exploring home-manager configurations
+    ///
+    /// Provides an interactive environment to explore and evaluate
+    /// components of a home-manager configuration. This is useful for
+    /// debugging or exploring available options.
     fn run(self) -> Result<()> {
         // Use NH_HOME_FLAKE if available, otherwise use the provided installable
         let installable = platform::resolve_env_installable("NH_HOME_FLAKE", self.installable);

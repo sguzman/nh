@@ -337,7 +337,37 @@ pub fn process_specialisation(
 }
 
 /// Execute common actions for a rebuild operation across platforms
-/// This unifies the core workflow that was previously duplicated across platforms
+///
+/// This function handles the core workflow for building and managing system
+/// configurations across different platforms (`NixOS`, Darwin, Home Manager).
+/// It unifies what would otherwise be duplicated across platform-specific modules.
+///
+/// The function takes care of:
+/// 1. Properly configuring the attribute path based on platform type
+/// 2. Building the configuration
+/// 3. Handling specialisations where applicable
+/// 4. Comparing the new configuration with the current one
+///
+/// # Arguments
+///
+/// * `installable` - The Nix installable representing the configuration
+/// * `config_type` - The configuration type (e.g., "nixosConfigurations", "darwinConfigurations")
+/// * `extra_path` - Additional path elements for the attribute path
+/// * `config_name` - Optional hostname or configuration name
+/// * `out_path` - Output path for the build result
+/// * `extra_args` - Additional arguments to pass to the build command
+/// * `builder` - Optional remote builder to use
+/// * `message` - Message to display during the build process
+/// * `no_nom` - Whether to disable nix-output-monitor
+/// * `specialisation_path` - Path to read specialisations from
+/// * `no_specialisation` - Whether to ignore specialisations
+/// * `specialisation` - Optional explicit specialisation to use
+/// * `current_profile` - Path to the current system profile for comparison
+/// * `skip_compare` - Whether to skip comparing the new and current configuration
+///
+/// # Returns
+///
+/// The path to the built configuration, which can be used for activation
 pub fn handle_rebuild_workflow(
     installable: Installable,
     config_type: &str,
@@ -379,7 +409,7 @@ pub fn handle_rebuild_workflow(
         {
             // All darwin configurations expose their outputs under system.build
             let toplevel_path = ["config", "system", "build"];
-            attribute.extend(toplevel_path.iter().map(|s| s.to_string()));
+            attribute.extend(toplevel_path.iter().map(|s| (*s).to_string()));
 
             // Add the final component (usually "toplevel")
             if !extra_path.is_empty() {

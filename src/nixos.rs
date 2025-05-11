@@ -15,12 +15,25 @@ use crate::util::ensure_ssh_key_login;
 use crate::util::get_hostname;
 use crate::util::platform;
 
+/// Path to the system profile on `NixOS`
 const SYSTEM_PROFILE: &str = "/nix/var/nix/profiles/system";
+/// Path to the current system profile on `NixOS`
 const CURRENT_PROFILE: &str = "/run/current-system";
-
+/// Path where `NixOS` stores specialisation information
 const SPEC_LOCATION: &str = "/etc/specialisation";
 
 impl interface::OsArgs {
+    /// Entry point for processing `NixOS` commands
+    ///
+    /// Handles the various subcommands for `NixOS` configurations:
+    /// - Switch: Builds, activates, and makes the configuration the boot default
+    /// - Boot: Builds and makes the configuration the boot default
+    /// - Test: Builds and activates the configuration
+    /// - Build: Only builds the configuration
+    /// - Repl: Opens a REPL for exploring the configuration
+    /// - Info: Lists available generations
+    /// - Rollback: Reverts to a previous generation
+    /// - `BuildVm`: Builds a `NixOS` VM image
     pub fn run(self) -> Result<()> {
         use OsRebuildVariant::{Boot, Build, Switch, Test};
         // Always resolve installable from env var at the top
@@ -67,6 +80,15 @@ impl interface::OsArgs {
     }
 }
 
+/// Variants of the `NixOS` rebuild operation
+///
+/// Each variant represents a different mode of operation with distinct
+/// activation behaviors:
+/// - Build: Only build the configuration
+/// - Switch: Build, activate, and make it the boot default
+/// - Boot: Build and make it the boot default
+/// - Test: Build and activate
+/// - `BuildVm`: Build a VM image for testing
 #[derive(Debug)]
 enum OsRebuildVariant {
     Build,
@@ -77,7 +99,25 @@ enum OsRebuildVariant {
 }
 
 impl OsRebuildArgs {
-    // Accept the resolved installable as a parameter
+    /// Rebuilds a `NixOS` configuration with the given variant and installable
+    ///
+    /// This is the core function for building and deploying `NixOS` configurations.
+    /// It handles:
+    /// 1. SSH key login for remote operations
+    /// 2. Root privilege management
+    /// 3. Flake updates if requested
+    /// 4. Hostname resolution and validation
+    /// 5. Building the configuration
+    /// 6. Specialisation handling
+    /// 7. Remote deployment if `target_host` is specified
+    /// 8. Configuration activation based on variant
+    ///
+    /// The different variants determine which aspects of deployment are executed:
+    /// - Build: Only build the configuration
+    /// - Switch: Build, activate, and make boot default
+    /// - Boot: Build and make boot default
+    /// - Test: Build and activate
+    /// - `BuildVm`: Build a VM image
     fn rebuild_with_installable(
         self,
         variant: OsRebuildVariant,
@@ -196,6 +236,16 @@ impl OsRebuildArgs {
 }
 
 impl OsRollbackArgs {
+    /// Rolls back the system to a previous generation
+    ///
+    /// This function:
+    /// 1. Finds the generation to roll back to (previous or specified)
+    /// 2. Shows a diff between current and target generations
+    /// 3. Sets the system profile to point to the target generation
+    /// 4. Activates the configuration
+    /// 5. Handles failures by rolling back the profile symlink if activation fails
+    ///
+    /// Generation specialisations are properly handled during rollback.
     fn rollback(&self) -> Result<()> {
         // Check if we need root permissions
         let elevate = platform::check_not_root(self.bypass_root_check)?;
@@ -311,6 +361,15 @@ impl OsRollbackArgs {
     }
 }
 
+/// Finds the previous generation in the system profile
+///
+/// This function:
+/// 1. Searches for available system generations
+/// 2. Identifies which one is currently active
+/// 3. Returns the generation immediately before the current one
+///
+/// Returns an error if there are no generations or if the current
+/// generation is already the oldest one.
 fn find_previous_generation() -> Result<generations::GenerationInfo> {
     let profile_path = PathBuf::from(SYSTEM_PROFILE);
 
@@ -357,6 +416,10 @@ fn find_previous_generation() -> Result<generations::GenerationInfo> {
     Ok(generations[current_idx - 1].clone())
 }
 
+/// Finds a specific generation by its number
+///
+/// Searches the system profiles directory for a generation with the
+/// specified number and returns its information if found.
 fn find_generation_by_number(number: u64) -> Result<generations::GenerationInfo> {
     let profile_path = PathBuf::from(SYSTEM_PROFILE);
 
@@ -388,6 +451,10 @@ fn find_generation_by_number(number: u64) -> Result<generations::GenerationInfo>
     Ok(generations[0].clone())
 }
 
+/// Gets the number of the currently active generation
+///
+/// This is useful for rollback operations, especially when needing
+/// to restore the system if activation of an older generation fails.
 fn get_current_generation_number() -> Result<u64> {
     let profile_path = PathBuf::from(SYSTEM_PROFILE);
 
@@ -414,6 +481,13 @@ fn get_current_generation_number() -> Result<u64> {
         .map_err(|_| eyre!("Invalid generation number"))
 }
 
+/// Determines the final attribute name for VM builds
+///
+/// Returns the appropriate Nix attribute based on whether
+/// the VM should include a bootloader:
+/// - "vmWithBootLoader" for VM with bootloader
+/// - "vm" for standard VM
+/// - "toplevel" for regular builds
 pub fn get_final_attr(build_vm: bool, with_bootloader: bool) -> String {
     let attr = if build_vm && with_bootloader {
         "vmWithBootLoader"
@@ -426,6 +500,11 @@ pub fn get_final_attr(build_vm: bool, with_bootloader: bool) -> String {
 }
 
 impl OsReplArgs {
+    /// Opens a Nix REPL for exploring `NixOS` configurations
+    ///
+    /// Provides an interactive environment to explore and evaluate
+    /// components of a `NixOS` configuration. This is useful for
+    /// debugging or exploring available options.
     fn run_with_installable(self, installable: Installable) -> Result<()> {
         // Get hostname, with fallback to system hostname
         let hostname = match self.hostname {
@@ -454,6 +533,13 @@ impl OsReplArgs {
 }
 
 impl OsGenerationsArgs {
+    /// Lists information about available `NixOS` generations
+    ///
+    /// This function:
+    /// 1. Identifies the profile and confirms it exists
+    /// 2. Finds all generations associated with that profile
+    /// 3. Collects metadata about each generation (number, date, etc.)
+    /// 4. Displays the information in a formatted list
     fn info(&self) -> Result<()> {
         let profile = match self.profile {
             Some(ref p) => PathBuf::from(p),
