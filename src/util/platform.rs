@@ -354,6 +354,61 @@ pub fn handle_rebuild_workflow(
     current_profile: &str,
     skip_compare: bool,
 ) -> Result<PathBuf> {
+    // Darwin configurations have a different structure that requires special handling
+    if config_type == "darwinConfigurations" {
+        // First construct the proper attribute path for darwin configs
+        let mut processed_installable = installable;
+        if let Installable::Flake {
+            ref mut attribute, ..
+        } = processed_installable
+        {
+            // Only set the attribute path if user hasn't already specified one
+            if attribute.is_empty() {
+                attribute.push(String::from(config_type));
+                if let Some(name) = config_name {
+                    attribute.push(name);
+                }
+            }
+        }
+
+        // Next, add config.system.build.<attr> to the path to access the derivation
+        let mut toplevel_attr = processed_installable;
+        if let Installable::Flake {
+            ref mut attribute, ..
+        } = toplevel_attr
+        {
+            // All darwin configurations expose their outputs under system.build
+            let toplevel_path = ["config", "system", "build"];
+            attribute.extend(toplevel_path.iter().map(|s| s.to_string()));
+
+            // Add the final component (usually "toplevel")
+            if !extra_path.is_empty() {
+                attribute.push(extra_path[0].to_string());
+            }
+        }
+
+        // Build the configuration
+        build_configuration(
+            toplevel_attr,
+            out_path,
+            extra_args,
+            builder,
+            message,
+            no_nom,
+        )?;
+
+        // Darwin doesn't use the specialisation mechanism like NixOS
+        let target_profile = out_path.get_path().to_owned();
+
+        // Run the diff to show changes
+        if !skip_compare {
+            compare_configurations(current_profile, &target_profile, false, "Comparing changes")?;
+        }
+
+        return Ok(target_profile);
+    }
+
+    // NixOS and Home Manager follow a different pattern
     // Configure the installable with platform-specific attributes
     let configured_installable = extend_installable_for_platform(
         installable,
@@ -378,7 +433,7 @@ pub fn handle_rebuild_workflow(
         no_nom,
     )?;
 
-    // Process any specialisations
+    // Process any specialisations (NixOS/Home-Manager specific feature)
     let target_specialisation =
         process_specialisation(no_specialisation, specialisation, specialisation_path)?;
 
