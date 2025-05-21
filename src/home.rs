@@ -67,8 +67,8 @@ impl HomeRebuildArgs {
         debug!(?out_path);
 
         // Use NH_HOME_FLAKE if available, otherwise use the provided installable
-        let installable =
-            platform::resolve_env_installable("NH_HOME_FLAKE", self.common.installable.clone());
+        let installable = platform::resolve_env_installable("NH_HOME_FLAKE")
+            .unwrap_or_else(|| self.common.installable.clone());
 
         // Set up the specialisation path
         let spec_location =
@@ -168,7 +168,8 @@ impl HomeReplArgs {
     /// debugging or exploring available options.
     fn run(self) -> Result<()> {
         // Use NH_HOME_FLAKE if available, otherwise use the provided installable
-        let installable = platform::resolve_env_installable("NH_HOME_FLAKE", self.installable);
+        let installable =
+            platform::resolve_env_installable("NH_HOME_FLAKE").unwrap_or_else(|| self.installable);
 
         // Launch an interactive REPL session for exploring the configuration
         platform::run_repl(

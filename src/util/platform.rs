@@ -10,9 +10,12 @@ use tracing::{debug, info, warn};
 use crate::commands;
 use crate::installable::Installable;
 
-/// Resolves an Installable from an environment variable, or falls back to the provided one.
-pub fn resolve_env_installable(var: &str, fallback: Installable) -> Installable {
-    if let Ok(val) = env::var(var) {
+/// Resolves an Installable from an environment variable.
+///
+/// Returns `Some(Installable)` if the environment variable is set and can be parsed,
+/// or `None` if the environment variable is not set.
+pub fn resolve_env_installable(var: &str) -> Option<Installable> {
+    env::var(var).ok().map(|val| {
         let mut elems = val.splitn(2, '#');
         let reference = elems.next().unwrap().to_owned();
         let attribute = elems
@@ -23,9 +26,7 @@ pub fn resolve_env_installable(var: &str, fallback: Installable) -> Installable 
             reference,
             attribute,
         }
-    } else {
-        fallback
-    }
+    })
 }
 
 /// Extends an Installable with the appropriate attribute path for a platform.

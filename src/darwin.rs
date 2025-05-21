@@ -72,8 +72,8 @@ impl DarwinRebuildArgs {
         debug!(?out_path);
 
         // Resolve the installable from env var or from the provided argument
-        let installable =
-            platform::resolve_env_installable("NH_DARWIN_FLAKE", self.common.installable.clone());
+        let installable = platform::resolve_env_installable("NH_DARWIN_FLAKE")
+            .unwrap_or_else(|| self.common.installable.clone());
 
         // Build the darwin configuration with proper attribute path handling
         let target_profile = platform::handle_rebuild_workflow(
@@ -151,7 +151,8 @@ impl DarwinReplArgs {
 
         // Open an interactive REPL session for exploring darwin configurations
         platform::run_repl(
-            platform::resolve_env_installable("NH_DARWIN_FLAKE", self.installable),
+            platform::resolve_env_installable("NH_DARWIN_FLAKE")
+                .unwrap_or_else(|| self.installable),
             "darwinConfigurations",
             &[], // REPL doesn't need additional path elements
             Some(hostname),

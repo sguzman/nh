@@ -36,19 +36,19 @@ impl interface::OsArgs {
     /// - `BuildVm`: Builds a `NixOS` VM image
     pub fn run(self) -> Result<()> {
         use OsRebuildVariant::{Boot, Build, Switch, Test};
-        // Always resolve installable from env var at the top
-        let resolved_installable = platform::resolve_env_installable(
-            "NH_OS_FLAKE",
-            match &self.subcommand {
-                OsSubcommand::Boot(args) => args.common.installable.clone(),
-                OsSubcommand::Test(args) => args.common.installable.clone(),
-                OsSubcommand::Switch(args) => args.common.installable.clone(),
-                OsSubcommand::Build(args) => args.common.installable.clone(),
-                OsSubcommand::BuildVm(args) => args.common.common.installable.clone(),
-                OsSubcommand::Repl(args) => args.installable.clone(),
-                _ => Installable::default(), // fallback for Info/Rollback, not used
-            },
-        );
+        // Always resolve installable from env var at the top, or use the provided one
+        let fallback_installable = match &self.subcommand {
+            OsSubcommand::Boot(args) => args.common.installable.clone(),
+            OsSubcommand::Test(args) => args.common.installable.clone(),
+            OsSubcommand::Switch(args) => args.common.installable.clone(),
+            OsSubcommand::Build(args) => args.common.installable.clone(),
+            OsSubcommand::BuildVm(args) => args.common.common.installable.clone(),
+            OsSubcommand::Repl(args) => args.installable.clone(),
+            _ => Installable::default(), // fallback for Info/Rollback, not used
+        };
+
+        let resolved_installable =
+            platform::resolve_env_installable("NH_OS_FLAKE").unwrap_or(fallback_installable);
         match self.subcommand {
             OsSubcommand::Boot(args) => {
                 args.rebuild_with_installable(Boot, None, resolved_installable)
