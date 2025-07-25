@@ -651,7 +651,7 @@ pub fn toplevel_for<S: AsRef<str>>(
         } => {
             attribute.extend(toplevel);
         }
-        Installable::Store { .. } => {}
+        Installable::Store { .. } | Installable::System { .. } => {}
     }
 
     res
@@ -678,7 +678,10 @@ impl OsReplArgs {
             self.installable
         };
 
-        if matches!(target_installable, Installable::Store { .. }) {
+        if matches!(
+            target_installable,
+            Installable::Store { .. } | Installable::System { .. }
+        ) {
             bail!("Nix doesn't support nix store installables.");
         }
 

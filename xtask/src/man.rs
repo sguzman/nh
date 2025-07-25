@@ -93,6 +93,17 @@ fn gen_man(base_dir: &Path) {
     }
     sect.to_writer(&mut buffer).unwrap();
 
+    let mut sys = Roff::new();
+    sys.control("SH", ["SYSTEM MANAGER COMMANDS"]);
+    for (cmd, desc) in [
+        ("nh sys build --switch", "Build and switch a system flake"),
+        ("nh sys list-generations", "List generations"),
+        ("nh sys rollback", "Rollback to a generation"),
+    ] {
+        sys.control("TP", []).text([bold(cmd)]).text([roman(desc)]);
+    }
+    sys.to_writer(&mut buffer).unwrap();
+
     std::fs::write(man_path, buffer).expect("failed to write manpage");
 }
 

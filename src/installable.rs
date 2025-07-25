@@ -24,6 +24,10 @@ pub enum Installable {
         expression: String,
         attribute: Vec<String>,
     },
+    #[allow(dead_code)]
+    System {
+        flake: String,
+    },
 }
 
 impl FromArgMatches for Installable {
@@ -324,6 +328,9 @@ impl Installable {
                 res.push(join_attribute(attribute));
             }
             Self::Store { path } => res.push(path.to_str().unwrap().to_string()),
+            Self::System { flake } => {
+                res.push(flake.clone());
+            }
         }
 
         res
@@ -348,6 +355,14 @@ fn test_installable_to_args() {
         })
         .to_args(),
         vec!["--file", "w", r#"x."y.z""#]
+    );
+
+    assert_eq!(
+        (Installable::System {
+            flake: String::from("path")
+        })
+        .to_args(),
+        vec!["path"]
     );
 }
 
@@ -391,6 +406,7 @@ impl Installable {
             Self::File { .. } => "file",
             Self::Store { .. } => "store path",
             Self::Expression { .. } => "expression",
+            Self::System { .. } => "system",
         }
     }
 }
