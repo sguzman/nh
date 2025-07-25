@@ -53,6 +53,7 @@ pub enum NHCommand {
     Os(OsArgs),
     Home(HomeArgs),
     Darwin(DarwinArgs),
+    Sys(SysArgs),
     Search(SearchArgs),
     Clean(CleanProxy),
     #[command(hide = true)]
@@ -66,6 +67,7 @@ impl NHCommand {
             Self::Os(args) => args.get_feature_requirements(),
             Self::Home(args) => args.get_feature_requirements(),
             Self::Darwin(args) => args.get_feature_requirements(),
+            Self::Sys(args) => args.get_feature_requirements(),
             Self::Search(_) => Box::new(NoFeatures),
             Self::Clean(_) => Box::new(NoFeatures),
             Self::Completions(_) => Box::new(NoFeatures),
@@ -96,6 +98,12 @@ impl NHCommand {
             Self::Darwin(args) => {
                 unsafe {
                     std::env::set_var("NH_CURRENT_COMMAND", "darwin");
+                }
+                args.run()
+            }
+            Self::Sys(args) => {
+                unsafe {
+                    std::env::set_var("NH_CURRENT_COMMAND", "sys");
                 }
                 args.run()
             }
@@ -631,6 +639,70 @@ impl DarwinReplArgs {
         // Check installable type
         matches!(self.installable, Installable::Flake { .. })
     }
+}
+
+#[derive(Debug, Args)]
+pub struct SysArgs {
+    #[command(subcommand)]
+    pub subcommand: SysSubcommand,
+}
+
+impl SysArgs {
+    #[must_use]
+    pub fn get_feature_requirements(&self) -> Box<dyn FeatureRequirements> {
+        Box::new(FlakeFeatures)
+    }
+
+    pub fn run(self) -> crate::Result<()> {
+        use crate::system::SystemManager;
+        match self.subcommand {
+            SysSubcommand::Build(args) => SystemManager::build(&args),
+            SysSubcommand::ListGenerations => SystemManager::list_generations(None),
+            SysSubcommand::Rollback(args) => SystemManager::rollback(&args),
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SysSubcommand {
+    Build(SystemBuildArgs),
+    ListGenerations,
+    Rollback(SystemRollbackArgs),
+}
+
+#[derive(Debug, Parser)]
+pub struct SystemBuildArgs {
+    #[arg(long)]
+    pub flake: Option<String>,
+
+    #[arg(long)]
+    pub switch: bool,
+
+    #[arg(long = "dry-activate")]
+    pub dry_activate: bool,
+
+    #[arg(long)]
+    pub no_link: bool,
+
+    #[arg(long)]
+    pub ssh: Option<String>,
+
+    #[arg(long)]
+    pub install_host: Option<String>,
+
+    #[command(flatten)]
+    pub passthrough: NixBuildPassthroughArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct SystemRollbackArgs {
+    pub generation: Option<String>,
+
+    #[arg(long)]
+    pub ssh: Option<String>,
+
+    #[arg(long)]
+    pub install_host: Option<String>,
 }
 
 #[derive(Debug, Args)]

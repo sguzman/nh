@@ -62,3 +62,16 @@ jobs:
           cd ..
           nix run .#nh -- darwin switch --hostname simple --dry --no-nom --verbose ./flake
         name: Test Switching to Nix Darwin Configuration
+
+  system-manager:
+    name: "System Manager Build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+
+      - run: nix run .#nh -- sys build --flake ./test/nixos.nix --dry-activate
+        name: Test system-manager build

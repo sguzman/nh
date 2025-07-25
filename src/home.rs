@@ -345,7 +345,7 @@ where
                 attribute.extend(toplevel);
             }
         }
-        Installable::Store { .. } => {}
+        Installable::Store { .. } | Installable::System { .. } => {}
     }
 
     Ok(res)

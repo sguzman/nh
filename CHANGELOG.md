@@ -16,6 +16,10 @@ functionality, under the "Removed" section.
 
 ## Unreleased
 
+### Added
+
+- System manager integration via `nh sys` for building and managing flakes.
+
 ### Changed
 
 - Nh checks are now more robust in the sense that unnecessary features will not
